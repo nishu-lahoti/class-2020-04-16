@@ -18,6 +18,7 @@ library(infer)
 library(skimr)
 library(gganimate)
 library(rpart.plot)
+library(lme4)
 library(tidymodels)
 library(tidyverse)
 
@@ -50,6 +51,19 @@ Interpret the coefficient of `income`.
 
 Write a sentence to your smart-but-not-mathematical boss which explains the association of income with preference for the Democratic candidate. Include a notion of uncertainty.
 
+```{r}
+
+logistic_mod <- logistic_reg() %>%
+  set_engine("glm")
+
+logistic_fit <- fit(logistic_mod, factor(vote) ~ ideology + gender + race,
+                    data = nes)
+
+logistic_fit %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high)
+
+```
 
 
 # Scene 2
@@ -67,6 +81,29 @@ Write two sentences explaining to your smart-but-not-mathematical boss what the 
 Optional: Can you write a simple dplr pipe which does, more or less, what the CART is doing, at least for the first node, and then confirms the numbers in the plot?
 
 
+```{r}
+
+tree_mod <- decision_tree() %>%
+  set_engine("rpart", model = TRUE) %>%
+  set_mode("classification")
+
+vote_tree <- fit(tree_mod,
+                 vote ~ ideology + gender + race + income,
+                 data = nes)
+
+vote_tree$fit %>%
+  prp(extra = 6)
+
+
+# Much cooler
+
+vote_tree <- fit(update(tree_mod, cost_complexity = 0.0),
+                 vote ~ ideology + income + gender + race, 
+                 data = nes)
+
+vote_tree$fit %>%
+  prp(extra = 6, varlen = 0, faclen = 0)
+```
 
 
 # Scene 3
@@ -80,6 +117,25 @@ Print out and interpret the model.
 How many trees did the forest use? Would we get better results if we used a different number of trees?
 
 What is OOB error?
+
+```{r}
+
+rf_mod <- rand_forest() %>%
+  set_engine("randomForest") %>%
+  set_mode("classification")
+
+vote_forest <- fit(rf_mod,
+                   vote ~ ideology + income + gender + race,
+                   data = nes)
+vote_forest
+
+tibble(error = vote_forest$fit$err.rate[, "OOB"],
+       trees = 1:500) %>%
+  ggplot(aes(x = trees, y = error)) +
+  geom_line() +
+  theme_classic()
+
+```
 
 
 
